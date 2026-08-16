@@ -1,4 +1,3 @@
-
 # MedKamba
 
 **MedKamba: Medical Image Segmentation using KAN and Mamba**
@@ -11,6 +10,19 @@ The core model, `UKAN` (defined in `archs.py`), replaces standard MLP/attention 
 - **KAN layers** (`kan.py`) using learnable spline-based activations, driven by a Fractional Jacobi Neural Block activation (`jacobi_polynomial.py`).
 - **Mamba-based token-mixing blocks** (`mambair_archs.py`, `BasicLayer`) for efficient long-range spatial modeling.
 - A convolutional encoder/decoder stem with a channel-and-spatial attention bridge (`KAN_SCA`) between skip connections.
+
+## Architecture
+
+![MedKamba architecture](assets/archs.png)
+
+The network follows an encoder–decoder design (b) with a **LACE** (Local-Aware Channel Enhancement) block and **f-KSCA** (fractional-KAN skip/channel attention) modules at each skip-connection stage, fused back into the decoder via `DConv2D` blocks.
+
+- **(a) LACE**: normalizes the input feature map, passes it through a **VSSM** block with a learnable scale, adds a residual, then applies a second norm → conv → channel-attention branch before a final residual sum, producing the refined feature map `F^D'`.
+- **(b) VSSM (Visual State-Space Module)**: splits the input into two paths — a linear→DWConv→SiLU path and a linear→SiLU path — feeding a **2D-SSM** block, then recombines the two branches by multiplication and normalization to produce `X_out`.
+- **(c) 2D-SSM**: the core state-space recurrence, `h_t = Ā_t h_{t-1} + B̄_t u_t` followed by the output equation `h_t = C_t h_t + D_t u_t`, computed recurrently over the spatial/token sequence.
+- **(d) SAB / CAB**: the spatial attention branch (SAB) fuses max- and average-pooled feature maps via a shared dilated Conv2D to produce a spatial attention map; the channel attention branch (CAB) applies global average pooling followed by shared fractional-KAN (fKAN) layers with a sigmoid gate, per stage, to produce channel attention weights. Both are combined with the input feature map via multiplication and residual addition.
+
+The encoder stacks `Conv2D` and `LACE` stages (downsampling by 2 at each stage, down to `H/32 × W/32`), the bottleneck applies `LACE` twice, and the decoder mirrors this with `f-KSCA` + `DConv2D` stages, fusing skip connections `S1`–`S4` back in at matching resolutions.
 
 ## Repository Structure
 
